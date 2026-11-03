@@ -1,0 +1,12 @@
+# Local secrets and development files
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+
+# Exclude duplicate project folder
+Agentic_AI_GitHub_Professional/
