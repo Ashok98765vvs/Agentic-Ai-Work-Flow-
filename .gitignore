@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+app_backup.py
+app_broken_backup.py
+app_damaged_backup.py
+app_before_ollama.py
+compose_before_ollama.yaml
