@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py mcp_server.py ./
-ENV PORT=8000
-CMD ["sh", "-c", "uvicorn app:api --host 0.0.0.0 --port ${PORT}"]
+EXPOSE 8000
+CMD ["uvicorn", "app:api", "--host", "0.0.0.0", "--port", "8000"]

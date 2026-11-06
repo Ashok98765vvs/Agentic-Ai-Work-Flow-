@@ -1,177 +1,94 @@
-<div align="center">
+# Agentic AI Workflow Assistant — Docker + Streamlit
 
-![Agentic AI Workflow Assistant project cover](assets/project-cover.png)
+An executable **local demo**, adapted from the supplied `app.py` and `mcp_server.py`.
 
-# Agentic AI Workflow Assistant
+## What is real and what is a demo?
 
-**A Python/FastAPI demonstration of a tool-using LLM agent, with a separate MCP tool server.**
+- **Working path (once started and configured):** Streamlit chat UI → FastAPI `POST /ask` → LangChain agent (LangGraph runtime) → OpenAI model → local Python tools → response.
+- **Real clock:** `current_utc_time()` gets current UTC time.
+- **Fictional data:** three in-memory project tasks. Task editing and persistence are **not implemented**.
+- **Not connected:** supplied `mcp_server.py` runs separately as a stdio MCP prototype; the FastAPI agent does **not** invoke it.
+- **Not production ready:** no authentication, persistent history, rate limits, cloud deployment, or external task access. Ports bind to localhost only.
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-REST_API-009688?logo=fastapi&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-Agent-1C3C3C) ![MCP](https://img.shields.io/badge/MCP-Separate_Server-6C4AB6) ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+## Prerequisites
 
-[Architecture](#architecture) · [Features](#features) · [Run locally](#run-locally) · [API](#api-usage) · [MCP](#mcp-tool-server) · [Roadmap](#roadmap)
+- Mac with Docker Desktop running (or another machine with Docker Engine + Compose plugin)
+- An OpenAI API key with usable API credits/access for the configured model
 
-</div>
+## Start
 
-> **Project status:** source-code portfolio demo. The FastAPI agent uses **local read-only Python tools**. The MCP server is a **separate stdio process** and is **not connected** to the HTTP agent. Deployment, end-to-end cloud operation, and real-client integrations are not claimed. The task data is fictional.
-
-## Overview
-
-This project illustrates how an LLM-powered assistant can answer natural-language questions about a small set of demo tasks by choosing available tools. The API is implemented with FastAPI, while the agent uses LangChain `create_agent` with a LangGraph-based runtime. A separate MCP server exposes similar read-only tools to MCP-capable clients.
-
-## Architecture
-
-![Architecture diagram showing local agent flow and separate MCP server](assets/architecture.png)
-
-```text
-HTTP path:
-User -> POST /ask -> FastAPI -> LangChain create_agent -> OpenAI model
-                                              |
-                                              +-> local list_tasks()
-                                              +-> local current_utc_time()
-                                              |
-                                         JSON answer
-
-Independent MCP path:
-MCP-capable client -> stdio -> mcp_server.py -> list_project_tasks() / utc_time()
-```
-
-**Boundary:** `app.py` does *not* use MCP to invoke `mcp_server.py`. MCP client integration is planned future work.
-
-## Features
-
-- Natural-language question answering using an OpenAI-backed agent.
-- Agent-selectable **read-only** tools for fictional tasks and UTC time.
-- REST endpoints (`GET /health`, `POST /ask`) with automatic OpenAPI docs.
-- Independent MCP tool server that can be connected to a compatible client.
-- Container packaging with Docker and environment-based configuration.
-- Explicit limits and security guidance for further development.
-
-## Tech stack
-
-| Layer | Implementation |
-| --- | --- |
-| Language | Python 3.11+ |
-| API | FastAPI + Uvicorn |
-| Agent | LangChain `create_agent` (LangGraph-based execution) |
-| Model | OpenAI model configured by `OPENAI_MODEL` (default: `gpt-4.1-mini`) |
-| Tools | Read-only Python functions |
-| MCP | Python MCP `FastMCP`, stdio server (separate process) |
-| Packaging | Docker |
-
-## Run locally
-
-**Requirements:** Python 3.11+, an OpenAI API key, and internet access for model calls. API usage may incur charges.
+Open Terminal and `cd` into the folder containing `compose.yaml`.
 
 ```bash
-# From this repository's root directory
-python -m venv .venv
-source .venv/bin/activate       # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# macOS/Linux: set the key in the current shell; don't add it to Git
-export OPENAI_API_KEY="your-api-key"
-uvicorn app:api --reload --port 8000
+cp .env.example .env
 ```
 
-For Windows PowerShell, set the key with `$env:OPENAI_API_KEY="your-api-key"`. An optional `.env.example` describes expected variables; do not commit a real `.env`. Note: this app reads environment variables from the process, **not automatically from `.env`**.
-
-Open **http://127.0.0.1:8000/docs** to explore the API.
-
-## API usage
-
-**Health check** (does not require the OpenAI key):
+Edit `.env` and replace `replace_with_your_api_key` with a real OpenAI API key. **Do not share or commit `.env`.**
 
 ```bash
-curl http://127.0.0.1:8000/health
+docker compose up --build -d
+docker compose ps
 ```
 
-Expected shape: `{"status":"ok","mode":"demo"}`.
+Open:
 
-**Ask the agent** (requires a valid API key and working model access):
+- **Chat dashboard:** http://localhost:8501
+- **Swagger API docs:** http://localhost:8000/docs
+- **Health endpoint:** http://localhost:8000/health
+
+Chat example: **What are my open project tasks?**
+
+## Verify responses
 
 ```bash
-curl -X POST http://127.0.0.1:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Which demo tasks are still open?"}'
+curl http://localhost:8000/health
+curl http://localhost:8000/tasks
+curl -X POST http://localhost:8000/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"What are my open demo tasks?"}'
 ```
 
-The response is JSON with an `answer` field. The precise wording is generated by the model and may vary. Demo tasks are defined in `app.py` and are **not persisted**.
-
-## MCP tool server
-
-Start a separate stdio MCP server:
+From your Mac (Python 3 installed):
 
 ```bash
-python mcp_server.py
+python3 tests/smoke_test.py
+TEST_LLM=1 python3 tests/smoke_test.py
 ```
 
-To test it, configure an MCP-capable client to launch your Python interpreter with the **absolute path** to `mcp_server.py`. The MCP server exposes `list_project_tasks(status)` and `utc_time()` as independent read-only tools. Its process is **not accessed by `POST /ask`** in the current version.
+`TEST_LLM=1` performs a paid external OpenAI API request; the default smoke test does not.
 
-## Docker
+To inspect containers:
 
 ```bash
-docker build -t agentic-ai-demo .
-docker run --rm -p 8000:8000 \
-  -e OPENAI_API_KEY="$OPENAI_API_KEY" agentic-ai-demo
+docker compose logs -f api dashboard
+docker compose down
 ```
 
-On Windows, adapt variable expansion to your shell. Docker hosts the API only; the MCP server is not started automatically by the Dockerfile.
+If ports 8000 or 8501 are in use, stop the other local service or change the host-side port in `compose.yaml`. You can run `docker compose down` from the previous stack before starting this one.
 
-## Evidence gallery
-
-The diagrams above are **designed illustrations**, not terminal/browser screenshots. Add images captured from your own computer after testing the app:
-
-| Real screenshot | How to capture |
-| --- | --- |
-| `screenshots/01-local-server.png` | Terminal after successful `uvicorn` startup |
-| `screenshots/02-fastapi-docs.png` | Open `/docs` in your browser |
-| `screenshots/03-api-response.png` | Execute `POST /ask` and capture successful output |
-| `screenshots/04-mcp-client.png` | Only after testing the server with a real MCP client |
-
-Once files are added, replace this gallery table with Markdown images, for example:
-
-```md
-![Verified FastAPI docs screenshot](screenshots/02-fastapi-docs.png)
-```
-
-## Repository structure
+## Source tree
 
 ```text
 .
-├── app.py                 # FastAPI and local-tool agent
-├── mcp_server.py          # Independent stdio MCP server
+├── app.py                     # FastAPI application and local demo tools
+├── mcp_server.py              # Standalone prototype, NOT connected
+├── Dockerfile                 # Backend image
 ├── requirements.txt
-├── Dockerfile
+├── compose.yaml               # Backend + dashboard
 ├── .env.example
-├── .gitignore
-├── README.md
-├── assets/
-│   ├── project-cover.png
-│   └── architecture.png
-└── screenshots/
-    └── README.md          # Instructions for real screenshots
+├── .dockerignore
+├── dashboard/
+│   ├── Dockerfile             # Streamlit image
+│   ├── requirements.txt
+│   └── main.py
+├── tests/
+│   └── smoke_test.py
+└── assets/
+    └── architecture.png      # Original architecture reference (not yet current)
 ```
 
-## Security and limitations
+## Limitations and next steps
 
-- No authentication, rate limits, quotas, or per-user isolation in this starter API. **Do not expose `/ask` publicly** without adding these protections and monitoring costs.
-- The demo tools are read-only, operate on hardcoded fictional tasks, and do not access client systems.
-- Model calls require a valid OpenAI API key; never commit secrets or screenshots showing them.
-- No production deployment, persistence, automated evaluation, or MCP-to-agent connection has been verified.
+This is a read-only starter app. Add `langchain-mcp-adapters` and a real MCP client before claiming MCP tools are used by the agent. Add SQLite/Postgres and write endpoints before claiming task updates or saved task state. For public/cloud deployment, add authentication, authorization, secret management, rate limiting, and proper observability.
 
-## Roadmap
-
-- [ ] Add automated unit and API integration tests.
-- [ ] Connect the LangChain agent to the MCP server through an MCP client.
-- [ ] Add persistent tasks with a database and user authentication.
-- [ ] Add tracing, evaluations, and safe error handling.
-- [ ] Add rate limits, token budgets, and deployment observability.
-- [ ] Publish a verified local demo video and genuine screenshots.
-
-## Author
-
-**Ashok Shankarappa** · [GitHub](https://github.com/Ashok98765vvs) · [LinkedIn](https://www.linkedin.com/in/ashok-s1/)
-
----
-
-*Portfolio prototype. All task records are synthetic; any screenshots should document an actual run rather than a simulated one.*
+Dependencies intentionally use bounded version ranges for compatibility with the original project. For reproducible releases, resolve and lock exact package versions after a successful build.

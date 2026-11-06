@@ -1,12 +1,12 @@
-# Local secrets and development files
 .env
 .env.*
 !.env.example
-.venv/
 __pycache__/
-*.py[cod]
-.pytest_cache/
+*.pyc
+.venv/
 .DS_Store
-
-# Exclude duplicate project folder
-Agentic_AI_GitHub_Professional/
+app_backup.py
+app_broken_backup.py
+app_damaged_backup.py
+app_before_ollama.py
+compose_before_ollama.yaml
